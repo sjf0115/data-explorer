@@ -1,0 +1,25 @@
+server:
+  port: 8080
+
+management:
+  server:
+    port: 7016
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  profiles:
+    active: prod
+  application:
+    name: data-explorer
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/data_explorer?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true
+    username: root
+    password: root
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.data.explorer.entity
+  configuration:
+    map-underscore-to-camel-case: true
