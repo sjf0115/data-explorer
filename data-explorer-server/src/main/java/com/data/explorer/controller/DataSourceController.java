@@ -11,7 +11,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/datasource")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class DataSourceController {
     @Autowired
     private final DataSourceService dataSourceService;

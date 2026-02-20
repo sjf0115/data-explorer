@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS `tb_user`(
     `user_id` VARCHAR(40) NOT NULL COMMENT '用户ID',
     `user_name` VARCHAR(100) NOT NULL COMMENT '用户名称',
     `password` VARCHAR(100) NOT NULL COMMENT '密码',
-    `source_type` INT NOT NULL DEFAULT 1 COMMENT '创建方式: 1-系统内置,2-自定义',
     `creator` VARCHAR(100) NOT NULL COMMENT '创建者',
     `modifier` VARCHAR(100) NOT NULL COMMENT '修改者',
     `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -15,23 +14,8 @@ CREATE TABLE IF NOT EXISTS `tb_user`(
     UNIQUE(`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT '用户';
 
-
---CREATE TABLE `profile_meta_datasource_schema` (
---    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '自增ID',
---    `status` INT NOT NULL DEFAULT 1 COMMENT '状态:1-启用,2-停用',
---    `schema_id` varchar(40) NOT NULL COMMENT '数据源 Schema ID',
---    `schema_name` varchar(100) NOT NULL COMMENT '数据源 Schema 名称',
---    `schema_type` varchar(100) NOT NULL COMMENT '数据源 Schema 类型:1-source,2-sink,3-source/sink',
---    `jdbc_protocol` varchar(50) NOT NULL COMMENT '数据源 Schema JDBC 协议 例如 jdbc://mysql',
---    `source_type` INT NOT NULL DEFAULT 1 COMMENT '创建方式: 1-系统内置,2-自定义',
---    `config_template` text NOT NULL COMMENT '配置模板',
---    `creator` varchar(100) NOT NULL COMMENT '创建者',
---    `modifier` varchar(100) NOT NULL COMMENT '修改者',
---    `gmt_create` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
---    `gmt_modified` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
---    PRIMARY KEY (`id`),
---    UNIQUE(`schema_id`)
---) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COMMENT='画像-数据源Schema';
+INSERT INTO tb_user (user_id, user_name, password, creator, modifier)
+VALUES ('admin', '管理员', MD5('123456'), 'system', 'system');
 
 -- 2. 数据源类型表
 CREATE TABLE IF NOT EXISTS data_source_type (
@@ -125,3 +109,55 @@ INSERT INTO table_info (database_id, name, description, row_count) VALUES
 (3, 'sales_summary', '销售汇总表', 50000),
 (4, 'customers', '客户表', 200000),
 (5, 'access_logs', '访问日志表', 50000000);
+
+-- ============================================
+-- 大模型对话平台表结构
+-- ============================================
+
+-- 7. 大模型配置表
+CREATE TABLE IF NOT EXISTS llm_model (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL COMMENT '模型名称',
+    model_id VARCHAR(100) NOT NULL COMMENT '模型标识(如gpt-3.5-turbo)',
+    provider VARCHAR(50) NOT NULL COMMENT '提供商(openai/deepseek等)',
+    base_url VARCHAR(255) COMMENT 'API基础URL',
+    api_key VARCHAR(255) COMMENT 'API密钥',
+    description VARCHAR(255) COMMENT '模型描述',
+    is_default BOOLEAN DEFAULT FALSE COMMENT '是否默认模型',
+    status INT DEFAULT 1 COMMENT '1:启用 0:禁用',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='大模型配置';
+
+-- 8. 对话会话表
+CREATE TABLE IF NOT EXISTS chat_conversation (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    conversation_id VARCHAR(64) NOT NULL UNIQUE COMMENT '会话唯一标识',
+    title VARCHAR(200) COMMENT '会话标题',
+    user_id VARCHAR(40) COMMENT '用户ID',
+    model_id BIGINT COMMENT '使用的模型ID',
+    status INT DEFAULT 1 COMMENT '1:正常 0:已删除',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    FOREIGN KEY (model_id) REFERENCES llm_model(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='对话会话';
+
+-- 9. 消息记录表
+CREATE TABLE IF NOT EXISTS chat_message (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    conversation_id VARCHAR(64) NOT NULL COMMENT '所属会话ID',
+    message_id VARCHAR(64) NOT NULL UNIQUE COMMENT '消息唯一标识',
+    role VARCHAR(20) NOT NULL COMMENT '角色: user/assistant/system',
+    content TEXT NOT NULL COMMENT '消息内容',
+    parent_message_id VARCHAR(64) COMMENT '父消息ID(用于分支对话)',
+    tokens_used INT DEFAULT 0 COMMENT '使用的token数',
+    status INT DEFAULT 1 COMMENT '1:正常 0:已删除',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    FOREIGN KEY (conversation_id) REFERENCES chat_conversation(conversation_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息记录';
+
+-- 初始化大模型配置数据
+INSERT INTO llm_model (name, model_id, provider, description, is_default, status) VALUES
+('DeepSeek Chat', 'deepseek-chat', 'deepseek', 'DeepSeek V3 对话模型', TRUE, 1),
+('GPT-3.5 Turbo', 'gpt-3.5-turbo', 'openai', 'OpenAI GPT-3.5 Turbo', FALSE, 1),
+('GPT-4', 'gpt-4', 'openai', 'OpenAI GPT-4', FALSE, 1);
